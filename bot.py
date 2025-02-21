@@ -2,9 +2,10 @@ import logging
 import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import ChatPermissions
-from aiogram.filters import Command, Text
-from dotenv import load_dotenv
+from aiogram.utils import executor
+import time
 import asyncio
+from dotenv import load_dotenv
 
 # Загрузка токена из .env файла
 load_dotenv()
@@ -13,7 +14,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 # Настройка бота
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(bot)
 
 # Словарь предупреждений
 warnings = {}
@@ -24,14 +25,14 @@ async def is_admin(message: types.Message):
     return message.from_user.id in chat_admins
 
 # Команда /ban
-@dp.message(Command("ban"))
+@dp.message_handler(commands=["ban"], is_chat_admin=True)
 async def ban_user(message: types.Message):
     if message.reply_to_message:
         await bot.kick_chat_member(message.chat.id, message.reply_to_message.from_user.id)
         await message.reply(f"Пользователь {message.reply_to_message.from_user.full_name} забанен.")
 
 # Команда /unban
-@dp.message(Command("unban"))
+@dp.message_handler(commands=["unban"], is_chat_admin=True)
 async def unban_user(message: types.Message):
     if len(message.text.split()) > 1:
         user_id = int(message.text.split()[1])
@@ -39,7 +40,7 @@ async def unban_user(message: types.Message):
         await message.reply(f"Пользователь {user_id} разбанен.")
 
 # Команда /mute
-@dp.message(Command("mute"))
+@dp.message_handler(commands=["mute"], is_chat_admin=True)
 async def mute_user(message: types.Message):
     if message.reply_to_message:
         await bot.restrict_chat_member(message.chat.id, message.reply_to_message.from_user.id,
@@ -47,7 +48,7 @@ async def mute_user(message: types.Message):
         await message.reply(f"Пользователь {message.reply_to_message.from_user.full_name} замьючен.")
 
 # Команда /unmute
-@dp.message(Command("unmute"))
+@dp.message_handler(commands=["unmute"], is_chat_admin=True)
 async def unmute_user(message: types.Message):
     if message.reply_to_message:
         await bot.restrict_chat_member(message.chat.id, message.reply_to_message.from_user.id,
@@ -55,7 +56,7 @@ async def unmute_user(message: types.Message):
         await message.reply(f"Пользователь {message.reply_to_message.from_user.full_name} размьючен.")
 
 # Команда /kick
-@dp.message(Command("kick"))
+@dp.message_handler(commands=["kick"], is_chat_admin=True)
 async def kick_user(message: types.Message):
     if message.reply_to_message:
         await bot.kick_chat_member(message.chat.id, message.reply_to_message.from_user.id)
@@ -63,7 +64,7 @@ async def kick_user(message: types.Message):
         await message.reply(f"Пользователь {message.reply_to_message.from_user.full_name} кикнут.")
 
 # Команда /warn
-@dp.message(Command("warn"))
+@dp.message_handler(commands=["warn"], is_chat_admin=True)
 async def warn_user(message: types.Message):
     if message.reply_to_message:
         user_id = message.reply_to_message.from_user.id
@@ -74,7 +75,7 @@ async def warn_user(message: types.Message):
             await message.reply(f"Пользователь {message.reply_to_message.from_user.full_name} забанен за 3 предупреждения.")
 
 # Команда /warnings
-@dp.message(Command("warnings"))
+@dp.message_handler(commands=["warnings"], is_chat_admin=True)
 async def check_warnings(message: types.Message):
     if message.reply_to_message:
         user_id = message.reply_to_message.from_user.id
@@ -82,7 +83,7 @@ async def check_warnings(message: types.Message):
         await message.reply(f"У {message.reply_to_message.from_user.full_name} {warn_count} предупреждений.")
 
 # Команда /clearwarns
-@dp.message(Command("clearwarns"))
+@dp.message_handler(commands=["clearwarns"], is_chat_admin=True)
 async def clear_warnings(message: types.Message):
     if message.reply_to_message:
         user_id = message.reply_to_message.from_user.id
@@ -90,20 +91,20 @@ async def clear_warnings(message: types.Message):
         await message.reply(f"Предупреждения для {message.reply_to_message.from_user.full_name} очищены.")
 
 # Команда /pin
-@dp.message(Command("pin"))
+@dp.message_handler(commands=["pin"], is_chat_admin=True)
 async def pin_message(message: types.Message):
     if message.reply_to_message:
         await bot.pin_chat_message(message.chat.id, message.reply_to_message.message_id)
         await message.reply("Сообщение закреплено.")
 
 # Команда /unpin
-@dp.message(Command("unpin"))
+@dp.message_handler(commands=["unpin"], is_chat_admin=True)
 async def unpin_message(message: types.Message):
     await bot.unpin_chat_message(message.chat.id)
     await message.reply("Сообщение откреплено.")
 
 # Команда /purge
-@dp.message(Command("purge"))
+@dp.message_handler(commands=["purge"], is_chat_admin=True)
 async def purge_messages(message: types.Message):
     if len(message.text.split()) > 1:
         count = int(message.text.split()[1])
@@ -114,9 +115,19 @@ async def purge_messages(message: types.Message):
         await bot.delete_messages(chat, messages_to_delete)
         await message.reply(f"Удалено {count} сообщений.")
 
-# Запуск бота
+# Обработка команды /start
+@dp.message_handler(commands=["start"])
+async def cmd_start(message: types.Message):
+    await message.reply("Привет! Я бот Peer!")
+
+# Запуск бота с обработкой ошибок
 async def main():
-    await dp.start_polling(bot)
+    while True:
+        try:
+            await dp.start_polling(bot, skip_updates=True)
+        except Exception as e:
+            logging.error(f"Произошла ошибка: {e}. Повторная попытка через 10 секунд.")
+            time.sleep(10)  # Повторная попытка через 10 секунд
 
 if __name__ == "__main__":
     asyncio.run(main())
