@@ -12,7 +12,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 # Настройка бота
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
 # Словарь предупреждений
 warnings = {}
@@ -115,7 +115,7 @@ async def purge_messages(message: types.Message):
 
 # Запуск бота
 async def main():
-    await dp.start_polling()
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
