@@ -2,7 +2,6 @@ import logging
 import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import ChatPermissions
-from aiogram.utils import executor
 from dotenv import load_dotenv
 import asyncio
 
